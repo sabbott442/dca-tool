@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DCA Simulator (2 Prices)</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    body { margin: 0; background: #0b0f14; color: #e8eef6; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 20px; margin: 8px 0 14px; }
+    .card { background: #121826; border: 1px solid #1f2a3a; border-radius: 14px; padding: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+    .grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+    @media (min-width: 820px){ .grid { grid-template-columns: 1fr 1fr; } }
+
+    label { display: block; font-size: 12px; opacity: .9; margin-bottom: 6px; }
+    input, select, button {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px 12px;
+      border-radius: 12px;
+      border: 1px solid #243248;
+      background: #0f1522;
+      color: #e8eef6;
+      outline: none;
+      font-size: 16px;
+    }
+    input:focus, select:focus { border-color: #3a6ea5; }
+    .row { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    @media (min-width: 520px){ .row { grid-template-columns: 1fr 1fr; } }
+
+    .hint { font-size: 12px; opacity: .8; margin-top: 8px; line-height: 1.35; }
+    .pill {
+      display: inline-block;
+      font-size: 12px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #0f2336;
+      border: 1px solid #223a52;
+      margin-left: 8px;
+      opacity: .95;
+    }
+    .warn { color: #ffd38a; }
+    .ok { color: #9ef0b5; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; overflow: hidden; border-radius: 12px; }
+    thead th {
+      text-align: left;
+      font-size: 12px;
+      padding: 10px 10px;
+      background: #0f2336;
+      border-bottom: 1px solid #223a52;
+      position: sticky; top: 0;
+    }
+    tbody td {
+      padding: 10px 10px;
+      border-bottom: 1px solid #1f2a3a;
+      font-size: 14px;
+      vertical-align: top;
+    }
+    tbody tr:hover { background: rgba(255,255,255,.03); }
+
+    .muted { opacity: .75; font-size: 12px; }
+    .small { font-size: 12px; opacity: .9; }
+    .twoColHeader { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .subhead { font-size: 12px; opacity: .8; margin: 0; }
+    .right { text-align: right; }
+
+    .footerBtns { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+    button { cursor: pointer; border: 1px solid #2d4463; background: #13233a; }
+    button:hover { background: #163056; }
+    .secondary { background: transparent; border: 1px solid #243248; }
+    .secondary:hover { background: rgba(255,255,255,.04); }
+
+    .status { margin-top: 10px; font-size: 12px; opacity: .9; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>DCA Simulator <span class="pill">2 prices</span></h1>
+
+    <div class="grid">
+      <div class="card">
+        <div class="row">
+          <div>
+            <label for="unitsHeld">Units held (coins/shares)</label>
+            <input id="unitsHeld" inputmode="decimal" placeholder="e.g., 11" />
+          </div>
+          <div>
+            <label for="multiple">Multiples (1–5)</label>
+            <select id="multiple">
+              <option value="1">1 (base only)</option>
+              <option value="2">2 (base, 2×base)</option>
+              <option value="3">3 (base, 2×, 3×)</option>
+              <option value="4">4 (base..4×)</option>
+              <option value="5">5 (base..5×)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px;">
+          <div>
+            <label for="totalCost">Current total cost ($ invested total)</label>
+            <input id="totalCost" inputmode="decimal" placeholder="e.g., 1485.00" />
+            <div class="muted">Edit this OR avg cost. Last edited wins.</div>
+          </div>
+          <div>
+            <label for="avgCost">Current avg cost ($ per unit)</label>
+            <input id="avgCost" inputmode="decimal" placeholder="e.g., 135.0000" />
+            <div class="muted">Auto-calculates from units + total cost (and vice versa).</div>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px;">
+          <div>
+            <label for="baseBuy">New buy amount ($ base)</label>
+            <input id="baseBuy" inputmode="decimal" placeholder="e.g., 100" />
+          </div>
+          <div>
+            <label>Buy prices (per unit)</label>
+            <div class="row">
+              <div>
+                <input id="priceA" inputmode="decimal" placeholder="Price A (e.g., 140)" />
+                <div class="muted">Current price</div>
+              </div>
+              <div>
+                <input id="priceB" inputmode="decimal" placeholder="Price B (e.g., 120)" />
+                <div class="muted">Target price</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="footerBtns">
+          <button id="resetBtn" class="secondary" type="button">Reset</button>
+          <button id="exampleBtn" type="button">Fill example (11 units, $135 avg)</button>
+        </div>
+
+        <div id="status" class="status"></div>
+        <div class="hint">
+          Output uses: <span class="ok">Units = 6 decimals</span>, <span class="ok">Avg cost = 4</span>, <span class="ok">Dollars = 2</span>.
+          Data is saved on this device (browser local storage) unless you clear it.
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="subhead">Results</p>
+        <div class="muted">Each row is cumulative: base, 2×base, 3×base… all at the entered price.</div>
+
+        <div style="overflow:auto; margin-top: 10px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Scenario</th>
+                <th class="right">New Buy $</th>
+                <th>Price A outcomes</th>
+                <th>Price B outcomes</th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody">
+              <tr>
+                <td colspan="4" class="muted">Enter values to see results.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="hint warn" style="margin-top:10px;">
+          If a value is missing or invalid (like price = 0), that section stays blank instead of crashing.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---------- Formatting helpers ----------
+    const fmtDollars = (n) => (Number.isFinite(n) ? n.toFixed(2) : "");
+    const fmtAvg = (n) => (Number.isFinite(n) ? n.toFixed(4) : "");
+    const fmtUnits = (n) => {
+      if (!Number.isFinite(n)) return "";
+      // 6 decimals, but trim trailing zeros and dot if needed
+      let s = n.toFixed(6);
+      s = s.replace(/\.?0+$/, (m) => (m.startsWith(".") ? "" : m));
+      return s;
+    };
+
+    const parseNum = (v) => {
+      if (typeof v !== "string") return NaN;
+      const cleaned = v.replace(/,/g, "").trim();
+      if (cleaned === "") return NaN;
+      const n = Number(cleaned);
+      return Number.isFinite(n) ? n : NaN;
+    };
+
+    // ---------- State ----------
+    const els = {
+      unitsHeld: document.getElementById("unitsHeld"),
+      totalCost: document.getElementById("totalCost"),
+      avgCost: document.getElementById("avgCost"),
+      baseBuy: document.getElementById("baseBuy"),
+      multiple: document.getElementById("multiple"),
+      priceA: document.getElementById("priceA"),
+      priceB: document.getElementById("priceB"),
+      resultsBody: document.getElementById("resultsBody"),
+      status: document.getElementById("status"),
+      resetBtn: document.getElementById("resetBtn"),
+      exampleBtn: document.getElementById("exampleBtn"),
+    };
+
+    let lastEdited = "totalCost"; // or "avgCost"
+    let isSyncing = false;
+
+    const STORAGE_KEY = "dca_sim_v1";
+
+    function saveState() {
+      const payload = {
+        unitsHeld: els.unitsHeld.value,
+        totalCost: els.totalCost.value,
+        avgCost: els.avgCost.value,
+        baseBuy: els.baseBuy.value,
+        multiple: els.multiple.value,
+        priceA: els.priceA.value,
+        priceB: els.priceB.value,
+        lastEdited,
+      };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      } catch {}
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const p = JSON.parse(raw);
+        els.unitsHeld.value = p.unitsHeld ?? "";
+        els.totalCost.value = p.totalCost ?? "";
+        els.avgCost.value = p.avgCost ?? "";
+        els.baseBuy.value = p.baseBuy ?? "";
+        els.multiple.value = p.multiple ?? "1";
+        els.priceA.value = p.priceA ?? "";
+        els.priceB.value = p.priceB ?? "";
+        lastEdited = p.lastEdited === "avgCost" ? "avgCost" : "totalCost";
+      } catch {}
+    }
+
+    // ---------- Core math ----------
+    function syncCostFields() {
+      if (isSyncing) return;
+      isSyncing = true;
+
+      const units = parseNum(els.unitsHeld.value);
+      const total = parseNum(els.totalCost.value);
+      const avg = parseNum(els.avgCost.value);
+
+      // If units invalid or <= 0, we can't compute conversions reliably
+      if (!Number.isFinite(units) || units <= 0) {
+        // If user edited one field, do not overwrite the other.
+        isSyncing = false;
+        return;
+      }
+
+      if (lastEdited === "totalCost") {
+        if (Number.isFinite(total)) {
+          const newAvg = total / units;
+          els.avgCost.value = fmtAvg(newAvg);
+        }
+      } else if (lastEdited === "avgCost") {
+        if (Number.isFinite(avg)) {
+          const newTotal = avg * units;
+          els.totalCost.value = fmtDollars(newTotal);
+        }
+      }
+
+      isSyncing = false;
+    }
+
+    function calcOutcomeForPrice({ units, totalCost, buyDollars, price }) {
+      if (!Number.isFinite(price) || price <= 0) return null;
+
+      const unitsBought = buyDollars / price;
+      const newUnits = units + unitsBought;
+      const newTotalCost = totalCost + buyDollars;
+      const newAvg = (newUnits > 0) ? (newTotalCost / newUnits) : NaN;
+
+      return {
+        unitsBought,
+        newUnits,
+        newTotalCost,
+        newAvg,
+      };
+    }
+
+    function renderResults() {
+      const units = parseNum(els.unitsHeld.value);
+      const totalCost = parseNum(els.totalCost.value);
+      const baseBuy = parseNum(els.baseBuy.value);
+      const mult = parseInt(els.multiple.value, 10);
+      const priceA = parseNum(els.priceA.value);
+      const priceB = parseNum(els.priceB.value);
+
+      // Status line (friendly, no explosions)
+      const problems = [];
+      if (!Number.isFinite(units) || units < 0) problems.push("Units held is missing/invalid.");
+      if (!Number.isFinite(totalCost) || totalCost < 0) problems.push("Total cost is missing/invalid (or enter avg cost + units).");
+      if (!Number.isFinite(baseBuy) || baseBuy <= 0) problems.push("New buy amount is missing/invalid.");
+      if ((!Number.isFinite(priceA) || priceA <= 0) && (!Number.isFinite(priceB) || priceB <= 0)) problems.push("Enter at least one buy price (> 0).");
+
+      if (problems.length === 0) {
+        els.status.innerHTML = `<span class="ok">Ready.</span> Showing ${mult} scenario${mult>1?"s":""}.`;
+      } else {
+        els.status.innerHTML = `<span class="warn">Needs:</span> ${problems.join(" ")}`;
+      }
+
+      // If we don't have enough to compute scenarios, show placeholder
+      if (!Number.isFinite(units) || units < 0 || !Number.isFinite(totalCost) || totalCost < 0 || !Number.isFinite(baseBuy) || baseBuy <= 0) {
+        els.resultsBody.innerHTML = `<tr><td colspan="4" class="muted">Enter units, total cost (or avg cost), and a base buy amount to see scenarios.</td></tr>`;
+        return;
+      }
+
+      // Build rows 1..mult
+      let rowsHtml = "";
+      for (let i = 1; i <= mult; i++) {
+        const buyDollars = baseBuy * i;
+
+        const outA = calcOutcomeForPrice({ units, totalCost, buyDollars, price: priceA });
+        const outB = calcOutcomeForPrice({ units, totalCost, buyDollars, price: priceB });
+
+        const cellA = outA
+          ? `
+            <div class="small"><strong>Units bought:</strong> ${fmtUnits(outA.unitsBought)}</div>
+            <div class="small"><strong>New units:</strong> ${fmtUnits(outA.newUnits)}</div>
+            <div class="small"><strong>New total $:</strong> ${fmtDollars(outA.newTotalCost)}</div>
+            <div class="small"><strong>New avg:</strong> ${fmtAvg(outA.newAvg)}</div>
+          `
+          : `<div class="muted">Enter Price A</div>`;
+
+        const cellB = outB
+          ? `
+            <div class="small"><strong>Units bought:</strong> ${fmtUnits(outB.unitsBought)}</div>
+            <div class="small"><strong>New units:</strong> ${fmtUnits(outB.newUnits)}</div>
+            <div class="small"><strong>New total $:</strong> ${fmtDollars(outB.newTotalCost)}</div>
+            <div class="small"><strong>New avg:</strong> ${fmtAvg(outB.newAvg)}</div>
+          `
+          : `<div class="muted">Enter Price B</div>`;
+
+        rowsHtml += `
+          <tr>
+            <td><strong>x${i}</strong> <span class="muted">(base × ${i})</span></td>
+            <td class="right">$${fmtDollars(buyDollars)}</td>
+            <td>${cellA}</td>
+            <td>${cellB}</td>
+          </tr>
+        `;
+      }
+
+      els.resultsBody.innerHTML = rowsHtml;
+    }
+
+    function recalcAll() {
+      syncCostFields();
+      renderResults();
+      saveState();
+    }
+
+    // ---------- Events ----------
+    function attach() {
+      // Track last edited cost field
+      els.totalCost.addEventListener("input", () => {
+        lastEdited = "totalCost";
+        recalcAll();
+      });
+      els.avgCost.addEventListener("input", () => {
+        lastEdited = "avgCost";
+        recalcAll();
+      });
+
+      // Other inputs
+      ["unitsHeld", "baseBuy", "priceA", "priceB"].forEach(id => {
+        els[id].addEventListener("input", recalcAll);
+      });
+      els.multiple.addEventListener("change", recalcAll);
+
+      els.resetBtn.addEventListener("click", () => {
+        const ok = confirm("Reset all fields and clear saved values on this device?");
+        if (!ok) return;
+        localStorage.removeItem(STORAGE_KEY);
+        lastEdited = "totalCost";
+        Object.values(els).forEach(el => {
+          if (el && (el.tagName === "INPUT")) el.value = "";
+        });
+        els.multiple.value = "1";
+        recalcAll();
+      });
+
+      els.exampleBtn.addEventListener("click", () => {
+        // Example: 11 units, avg cost 135.0000 -> total cost 1485.00
+        els.unitsHeld.value = "11";
+        els.avgCost.value = "135.0000";
+        lastEdited = "avgCost";
+        syncCostFields(); // fills total
+        els.baseBuy.value = "100";
+        els.multiple.value = "4";
+        els.priceA.value = "140";
+        els.priceB.value = "120";
+        recalcAll();
+      });
+    }
+
+    // ---------- Init ----------
+    loadState();
+    attach();
+    recalcAll();
+  </script>
+</body>
+</html>
